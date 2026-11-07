@@ -1,0 +1,2 @@
+Build requested by repository owner on 2026-11-07 at 23:51 Asia/Bangkok.
+Purpose: trigger the push-based Android APK workflow without changing application code.

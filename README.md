@@ -11,6 +11,7 @@ Local requirements: JDK 17, Gradle 8.9, Android SDK 35. Run `gradle :app:assembl
 1. Open Settings and enter your own Groq key. It is encrypted with an Android Keystore AES key.
 2. Select translation model and edit the Thai translation prompt. Verify availability and free-tier limits in your own Groq account.
 3. Import an MP3/WAV, select source language or auto, and choose whether to translate.
+   - Thai subtitle translation aims for natural conversational Thai while preserving the source meaning, tone, profanity, slang, dialect, and adult (18+) content without censorship or euphemistic softening. Literal markers such as `***` are preserved. Unclear speech must not be guessed or hallucinated.
 4. Keep the app open while processing. Tap a subtitle card to seek playback, or Edit to change text.
 5. Export original, Thai or bilingual SRT/TXT using the Android document picker.
 

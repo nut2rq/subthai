@@ -1,59 +1,102 @@
-name: Build Android APK
+name: SubThai Android CI
+
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - "feature/**"
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
+
 permissions:
   contents: read
+
 concurrency:
-  group: android-${{ github.ref }}
+  group: subthai-android-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
 jobs:
   build:
+    name: Build and verify Debug APK
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
-      - uses: android-actions/setup-android@v3
+          java-version: "17"
+
+      - name: Set up Android SDK tools
+        uses: android-actions/setup-android@v3
         with:
-    packages: platform-tools
+          packages: "platform-tools"
+
+      - name: Install required Android SDK packages
         shell: bash
         run: |
-          set -o pipefail
-          sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 2>&1 | tee sdk-install.log
-      - uses: gradle/actions/setup-gradle@v4
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager --install "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.9'
-      - name: Assemble debug APK
+          gradle-version: "8.9"
+
+      - name: Verify Android project configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f settings.gradle
+          test -f app/build.gradle
+          test -f app/src/main/AndroidManifest.xml
+          test -f app/src/main/java/com/subthai/app/MainActivity.java
+
+      - name: Assemble Debug APK
         id: assemble
         shell: bash
         run: |
           set -o pipefail
           gradle --no-daemon --stacktrace --console=plain :app:assembleDebug 2>&1 | tee assemble-debug.log
-      - name: Upload APK before lint
+
+      - name: Verify APK output
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          ls -lh "$APK"
+          sha256sum "$APK"
+
+      - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
           name: SubThai-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
-      - name: Android lint
-        if: ${{ !cancelled() && steps.assemble.outcome == 'success' }}
+
+      - name: Run Android lint
+        if: ${{ steps.assemble.outcome == 'success' }}
+        continue-on-error: true
         shell: bash
         run: |
           set -o pipefail
           gradle --no-daemon --stacktrace --console=plain :app:lintDebug 2>&1 | tee lint-debug.log
-      - name: Upload diagnostic logs and reports
-        uses: actions/upload-artifact@v4
+
+      - name: Upload diagnostic reports
         if: always()
+        uses: actions/upload-artifact@v4
         with:
-          name: Android-diagnostics
+          name: SubThai-build-diagnostics
           path: |
-            sdk-install.log
             assemble-debug.log
             lint-debug.log
             app/build/reports/

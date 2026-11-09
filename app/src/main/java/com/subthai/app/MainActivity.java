@@ -55,6 +55,7 @@ public class MainActivity extends Activity {
  private int dp(int n) { return Math.round(n*getResources().getDisplayMetrics().density); }
  private TextView text(String s,int size) { TextView t=new TextView(this); t.setText(s);t.setTextSize(size);t.setTextColor(Color.rgb(35,43,59));t.setPadding(dp(8),dp(8),dp(8),dp(8));return t; }
  private void screen(String title) {
+  processTitle=null;processDetail=null;processPercentView=null;processLogView=null;processBar=null;
   page=new LinearLayout(this);page.setOrientation(1);page.setBackgroundColor(0xfff4f5fa);page.setFitsSystemWindows(true);
   TextView header=text(title,24);header.setTypeface(null,Typeface.BOLD);header.setTextColor(Color.WHITE);header.setPadding(dp(20),dp(22),dp(20),dp(22));
   header.setBackground(new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,new int[]{0xff337eb8,0xff51a4db}));page.addView(header);

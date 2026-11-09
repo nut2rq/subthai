@@ -47,6 +47,7 @@ public class MainActivity extends Activity {
  private android.content.SharedPreferences prefs;
  @Override public void onCreate(Bundle state) {
   super.onCreate(state); prefs=getSharedPreferences("settings",MODE_PRIVATE);
+  String savedPrompt=prefs.getString("prompt","");if(savedPrompt.contains("รักษาเครื่องหมายจากต้นฉบับ เช่น *** ให้ตรงตามเดิม")){savedPrompt=savedPrompt.replace("รักษาเครื่องหมายจากต้นฉบับ เช่น *** ให้ตรงตามเดิม","ห้ามใช้เครื่องหมายดอกจันแทนคำพูดหรือเซ็นเซอร์คำแปล");prefs.edit().putString("prompt",savedPrompt).apply();}
   try { String raw=prefs.getString("key",""); if(!raw.isEmpty()) apiKey=decrypt(raw,"groq"); } catch(Exception e) { prefs.edit().remove("key").apply(); }
   try { String raw=prefs.getString("gemini_key",""); if(!raw.isEmpty()) geminiApiKey=decrypt(raw,"gemini"); } catch(Exception e) { prefs.edit().remove("gemini_key").apply(); }
   try { history=new JSONArray(new String(java.nio.file.Files.readAllBytes(new File(getFilesDir(),"history.json").toPath()),StandardCharsets.UTF_8)); } catch(Exception ignored) {}

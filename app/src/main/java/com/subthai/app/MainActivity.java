@@ -33,7 +33,7 @@ public class MainActivity extends Activity {
  private JSONArray history = new JSONArray();
  private JSONObject current;
  private boolean busy;
- private TextView processTitle, processDetail, processLogView;
+ private TextView processTitle, processDetail, processPercentView, processLogView;
  private ProgressBar processBar;
  private String processStage="ยังไม่เริ่ม", processDetailText="", processLog="", processFilename="";
  private int processPercent=0, processDone=0, processTotal=0;
@@ -67,7 +67,7 @@ public class MainActivity extends Activity {
   processTitle=text("Process / Job Monitor",17);processTitle.setTypeface(null,Typeface.BOLD);panel.addView(processTitle);
   processDetail=text(processStage+"\n"+processDetailText,13);panel.addView(processDetail);
   processBar=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);processBar.setMax(100);processBar.setIndeterminate(processIndeterminate);processBar.setProgress(processPercent);panel.addView(processBar,new LinearLayout.LayoutParams(-1,dp(12)));
-  TextView pct=text(processIndeterminate?"เปอร์เซ็นต์ระหว่างประมวลผลยังไม่สามารถอ่านจาก API ได้":processPercent+"%",13);panel.addView(pct);
+  processPercentView=text(processIndeterminate?"เปอร์เซ็นต์ระหว่างประมวลผลยังไม่สามารถอ่านจาก API ได้":processPercent+"%",13);panel.addView(processPercentView);
   processLogView=text(processLog.isEmpty()?"ยังไม่มีบันทึกงาน":processLog,12);panel.addView(processLogView);
   body.addView(panel,new LinearLayout.LayoutParams(-1,-2));
  }
@@ -75,7 +75,7 @@ public class MainActivity extends Activity {
   processStage=stage;processDetailText=detail;processPercent=Math.max(0,Math.min(100,percent));processIndeterminate=indeterminate;processDone=done;processTotal=total;
   String line=new java.text.SimpleDateFormat("HH:mm:ss",Locale.getDefault()).format(new Date())+" · "+stage+" — "+detail;
   if(!line.equals(processLog)){processLog=(processLog.isEmpty()?"":"\n")+line;if(processLog.length()>1800)processLog=processLog.substring(processLog.length()-1800);}
-  runOnUiThread(()->{if(processTitle!=null)processTitle.setText("Process / Job Monitor · "+processFilename);if(processDetail!=null)processDetail.setText(stage+"\n"+detail+(total>0?"\nรายการ: "+done+" / "+total:""));if(processBar!=null){processBar.setIndeterminate(indeterminate);processBar.setProgress(processPercent);}if(processLogView!=null)processLogView.setText(processLog);});
+  runOnUiThread(()->{if(processTitle==null&&busy&&body!=null)addProcessMonitor();if(processTitle!=null)processTitle.setText("Process / Job Monitor · "+processFilename);if(processDetail!=null)processDetail.setText(stage+"\n"+detail+(total>0?"\nรายการ: "+done+" / "+total:""));if(processBar!=null){processBar.setIndeterminate(indeterminate);processBar.setProgress(processPercent);}if(processPercentView!=null)processPercentView.setText(indeterminate?"เปอร์เซ็นต์ระหว่างประมวลผลยังไม่สามารถอ่านจาก API ได้":processPercent+"% ของงานที่ประเมินได้");if(processLogView!=null)processLogView.setText(processLog);});
  }
  private Button navButton(String label,Runnable action) { Button b=new Button(this);b.setText(label);b.setAllCaps(false);b.setOnClickListener(v->action.run());return b; }
  private Button button(String label,Runnable action) { Button b=navButton(label,action);b.setTextColor(Color.WHITE);b.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xff8265e9));body.addView(b,new LinearLayout.LayoutParams(-1,-2));return b; }

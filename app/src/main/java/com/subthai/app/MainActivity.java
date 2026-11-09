@@ -101,6 +101,39 @@ public class MainActivity extends Activity {
  }
  private String groqTranslationModel() { String model=prefs.getString("model","openai/gpt-oss-120b"); if(model.isEmpty()||model.equals("llama-3.3-70b-versatile")){model="openai/gpt-oss-120b";prefs.edit().putString("model",model).apply();} return model; }
  private String geminiTranslationModel() { return prefs.getString("gemini_model","gemini-3.8-flash"); }
+ private String checkProviderKey(String provider,String key,String model) throws Exception {
+  String cleanModel=model.trim();if(cleanModel.startsWith("models/"))cleanModel=cleanModel.substring(7);
+  Request req;
+  if("gemini".equals(provider))req=new Request.Builder().url("https://generativelanguage.googleapis.com/v1beta/models?pageSize=100").header("x-goog-api-key",key).get().build();
+  else req=new Request.Builder().url("https://api.groq.com/openai/v1/models").header("Authorization","Bearer "+key).get().build();
+  try(Response response=http.newCall(req).execute()){
+   int code=response.code();String raw=response.body()==null?"":response.body().string();JSONObject data;try{data=new JSONObject(raw);}catch(Exception ignored){data=new JSONObject();}
+   if(!response.isSuccessful()){
+    String detail=data.optJSONObject("error")==null?"":data.optJSONObject("error").optString("message","");
+    String reason;
+    if(code==400||code==401)reason="API Key ไม่ถูกต้องหรือรูปแบบไม่ถูกต้อง";
+    else if(code==403)reason="API Key ไม่มีสิทธิ์ใช้บริการ หรือโครงการ/บริการยังไม่เปิดใช้งาน";
+    else if(code==404)reason="ไม่พบ API endpoint หรือโมเดลที่ร้องขอ";
+    else if(code==429)reason="โควตาหรืออัตราการเรียกใช้ API เต็ม";
+    else if(code>=500)reason="เซิร์ฟเวอร์ผู้ให้บริการขัดข้องชั่วคราว";
+    else reason="ผู้ให้บริการปฏิเสธคำขอ";
+    throw new IOException(reason+" (HTTP "+code+")"+(detail.isEmpty()?"":"\\nรายละเอียด: "+detail));
+   }
+   if("gemini".equals(provider)){
+    JSONArray models=data.optJSONArray("models");boolean found=false,canGenerate=false;
+    if(models!=null)for(int i=0;i<models.length();i++){JSONObject item=models.optJSONObject(i);if(item==null)continue;String name=item.optString("name","");if(name.equals("models/"+cleanModel)||name.endsWith("/"+cleanModel)){found=true;JSONArray methods=item.optJSONArray("supportedGenerationMethods");if(methods!=null)for(int j=0;j<methods.length();j++)if("generateContent".equals(methods.optString(j)))canGenerate=true;break;}}
+    if(!found)throw new IOException("API Key ใช้งานได้ แต่ไม่พบโมเดล "+cleanModel+" ในรายการที่บัญชีนี้เข้าถึงได้");
+    if(!canGenerate)throw new IOException("พบโมเดล "+cleanModel+" แต่ไม่รองรับ generateContent");
+    return "Gemini API Key ใช้งานได้\\nพบโมเดล: "+cleanModel+"\\nรองรับ generateContent\\nยังไม่ได้ทดสอบการแปลไฟล์จริง";
+   }else{
+    JSONArray models=data.optJSONArray("data");boolean found=false;
+    if(models!=null)for(int i=0;i<models.length();i++)if("whisper-large-v3-turbo".equals(models.getJSONObject(i).optString("id"))){found=true;break;}
+    if(!found)throw new IOException("API Key ผ่าน แต่ไม่พบโมเดล whisper-large-v3-turbo สำหรับถอดเสียง");
+    return "Groq API Key ใช้งานได้\\nพบโมเดล Whisper large-v3-turbo\\nพร้อมใช้ถอดเสียง MP3/WAV";
+   }
+  }catch(java.net.UnknownHostException ex){throw new IOException("DNS ไม่สามารถค้นหา "+("gemini".equals(provider)?"generativelanguage.googleapis.com":"api.groq.com")+" ได้",ex);}
+  catch(java.net.SocketTimeoutException ex){throw new IOException("หมดเวลารอผู้ให้บริการตอบกลับ (Timeout)",ex);}
+ }
  private void settings() {
   screen("ตั้งค่า Provider");body.addView(text("เลือกผู้ให้บริการแปลภาษา",16));
   Spinner provider=spinner(new String[]{"Groq — ถอดเสียงและแปลภาษา","Gemini — แปลภาษา (ถอดเสียงยังใช้ Groq Whisper)"});
@@ -113,6 +146,8 @@ public class MainActivity extends Activity {
   body.addView(text("Gemini translation model (ค่าเริ่มต้น gemini-3.8-flash)",14));EditText geminiModel=field(geminiTranslationModel(),"เช่น gemini-3.8-flash");
   body.addView(text("Prompt เริ่มต้น — ใช้ร่วมกันได้ทั้ง Groq และ Gemini",14));EditText prompt=field(prefs.getString("prompt",defaultPrompt),"คำสั่งแปลไทย");prompt.setMinLines(5);
   button("บันทึกการตั้งค่า",()->{try{String g=key.getText().toString().trim(),gm=geminiKey.getText().toString().trim(),gModel=groqModel.getText().toString().trim(),gmModel=geminiModel.getText().toString().trim();if(gModel.isEmpty()||gmModel.isEmpty())throw new Exception("กรุณาระบุ Model ID ทั้ง Groq และ Gemini");android.content.SharedPreferences.Editor e=prefs.edit().putString("provider",provider.getSelectedItemPosition()==1?"gemini":"groq").putString("model",gModel).putString("gemini_model",gmModel).putString("prompt",prompt.getText().toString());if(rememberGroq.isChecked()&&!g.isEmpty())e.putString("key",encrypt(g,"groq"));else e.remove("key");if(rememberGemini.isChecked()&&!gm.isEmpty())e.putString("gemini_key",encrypt(gm,"gemini"));else e.remove("gemini_key");e.apply();apiKey=g;geminiApiKey=gm;message("บันทึกการตั้งค่าแล้ว");}catch(Exception e){message("บันทึกไม่สำเร็จ: "+e.getMessage());}});
+  button("ตรวจสอบ Groq API Key + Whisper",()->{String k=key.getText().toString().trim();if(k.isEmpty()){message("กรุณาใส่ Groq API Key ก่อน");return;}worker.execute(()->{try{String result=checkProviderKey("groq",k,"whisper-large-v3-turbo");runOnUiThread(()->message(result));}catch(Exception ex){runOnUiThread(()->message("ตรวจ Groq ไม่สำเร็จ\\n"+(ex.getMessage()==null?"ไม่ทราบสาเหตุ":ex.getMessage())));}});});
+  button("ตรวจสอบ Gemini API Key + โมเดล",()->{String k=geminiKey.getText().toString().trim(),m=geminiModel.getText().toString().trim();if(k.isEmpty()){message("กรุณาใส่ Gemini API Key ก่อน");return;}if(m.isEmpty()){message("กรุณาระบุ Gemini Model ID");return;}worker.execute(()->{try{String result=checkProviderKey("gemini",k,m);runOnUiThread(()->message(result));}catch(Exception ex){runOnUiThread(()->message("ตรวจ Gemini ไม่สำเร็จ\\n"+(ex.getMessage()==null?"ไม่ทราบสาเหตุ":ex.getMessage())));}});});
   button("ทดสอบ API Key และโมเดลของ Provider ที่เลือก",()->{final boolean useGemini=provider.getSelectedItemPosition()==1;final String k=(useGemini?geminiKey:key).getText().toString().trim();final String selected=(useGemini?geminiModel:groqModel).getText().toString().trim();if(k.isEmpty()){message("กรุณาใส่ API Key ของ Provider ที่เลือก");return;}worker.execute(()->{try{if(useGemini){JSONObject payload=new JSONObject().put("contents",new JSONArray().put(new JSONObject().put("parts",new JSONArray().put(new JSONObject().put("text","Reply with the word ready."))))).put("generationConfig",new JSONObject().put("temperature",0).put("responseMimeType","application/json"));JSONObject test=request(new Request.Builder().url("https://generativelanguage.googleapis.com/v1beta/models/"+selected+":generateContent").header("x-goog-api-key",k).post(RequestBody.create(MediaType.parse("application/json"),payload.toString())).build());JSONArray candidates=test.optJSONArray("candidates");if(candidates==null||candidates.length()==0)throw new IOException("Gemini ไม่ส่งคำตอบ อาจติดข้อจำกัดหรือโมเดลไม่พร้อมใช้งาน");}else{JSONObject list=request(new Request.Builder().url("https://api.groq.com/openai/v1/models").header("Authorization","Bearer "+k).build());JSONArray available=list.optJSONArray("data");boolean found=false;if(available!=null)for(int i=0;i<available.length();i++)if(selected.equals(available.getJSONObject(i).optString("id"))){found=true;break;}if(!found)throw new IOException("Groq API Key ใช้งานได้ แต่ไม่พบโมเดล "+selected+" ในรายการของบัญชี");}runOnUiThread(()->message((useGemini?"Gemini":"Groq")+" API Key และโมเดลตอบสนองสำเร็จ"));}catch(Exception e){error(e);}});});
   button("ลบ API Key ที่บันทึกไว้ทั้งสอง Provider",()->{apiKey="";geminiApiKey="";prefs.edit().remove("key").remove("gemini_key").apply();key.setText("");geminiKey.setText("");rememberGroq.setChecked(false);rememberGemini.setChecked(false);message("ลบ key ที่บันทึกไว้แล้ว");});
  }

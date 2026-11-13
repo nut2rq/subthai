@@ -8,6 +8,7 @@ on:
   pull_request:
     branches:
       - main
+      - "feature/**"
   workflow_dispatch:
 
 permissions:
@@ -82,6 +83,17 @@ jobs:
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Publish build summary
+        if: success()
+        shell: bash
+        run: |
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          echo "## SubThai Android build" >> "$GITHUB_STEP_SUMMARY"
+          echo "- APK artifact: SubThai-debug-apk (app-debug.apk)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- APK size:" "$(du -h "$APK" | awk '{print $1}')" >> "$GITHUB_STEP_SUMMARY"
+          echo "- SHA-256:" "$(sha256sum "$APK" | awk '{print $1}')" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Download the SubThai-debug-apk artifact from this workflow run." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Run Android lint
         if: ${{ steps.assemble.outcome == 'success' }}

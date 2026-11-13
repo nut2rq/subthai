@@ -3,7 +3,7 @@
 Mobile MP3/WAV transcription using your own Groq API key, editable Thai translation prompts, local searchable history, audio playback, and SRT/TXT export. Native Java Android UI, blue gradient header and purple buttons.
 
 ## Build
-GitHub Actions runs on push to main or manually using Actions > Build Android APK > Run workflow. After a successful run, download the SubThai-debug-apk artifact and extract app-debug.apk. This is a test/debug build, not a signed production release. No API key is required to build.
+GitHub Actions runs automatically on pushes to `main` and `feature/**`, on pull requests to those branches, or manually from Actions > SubThai Android CI > Run workflow. Open the completed run and download the `SubThai-debug-apk` artifact; extract `app-debug.apk` and install it on Android. Build diagnostics are uploaded separately as `SubThai-build-diagnostics`. This is a test/debug build, not a signed production release. No API key is required to build.
 
 Local requirements: JDK 17, Gradle 8.9, Android SDK 35. Run `gradle :app:assembleDebug`. Gradle wrapper is not bundled; CI installs a pinned Gradle version.
 
